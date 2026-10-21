@@ -9,8 +9,8 @@ services:
       - .:/home/user/hostcwd
       - buildozer-cache:/home/user/.buildozer
     environment:
-      - BUILDOZER_WARN_ON_ROOT=0
-    command: buildozer android debug
+      BUILDOZER_WARN_ON_ROOT: "0"
+    command: android debug
 
 volumes:
   buildozer-cache:

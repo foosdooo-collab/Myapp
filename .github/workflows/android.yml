@@ -2,23 +2,19 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Restore Buildozer cache
@@ -29,17 +25,20 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
+      - name: Prepare directories
+        run: mkdir -p bin .buildozer
+
       - name: Build Docker image
         run: docker build -t my-buildozer:latest .
 
       - name: Build Android APK
         run: |
-          mkdir -p bin .buildozer
           docker run --rm \
-            --volume "$GITHUB_WORKSPACE:/home/user/hostcwd" \
-            --workdir /home/user/hostcwd \
+            -v "$GITHUB_WORKSPACE:/home/user/hostcwd" \
+            -v "$GITHUB_WORKSPACE/.buildozer:/home/user/.buildozer" \
+            -w /home/user/hostcwd \
             my-buildozer:latest \
-            buildozer android debug
+            android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
