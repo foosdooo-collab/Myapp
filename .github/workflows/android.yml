@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Checkout app
+      - name: Checkout application
         uses: actions/checkout@v4
 
       - name: Checkout python-for-android
@@ -24,23 +24,34 @@ jobs:
           path: p4a-source
 
       - name: Build p4a Docker image
-        run: docker build --tag p4a ./p4a-source
+        run: docker build -t p4a ./p4a-source
 
-      - name: Build APK
-        shell: bash
+      - name: Verify p4a environment
+        run: |
+          docker run --rm p4a sh -c '
+            pwd
+            ls -la
+            ls -la venv/bin/activate
+            . venv/bin/activate
+            p4a --version
+            echo "ANDROID_SDK_HOME=$ANDROID_SDK_HOME"
+            echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          '
+
+      - name: Build Android APK
         run: |
           set -euxo pipefail
           mkdir -p bin
 
           docker run --rm \
-            -v "$GITHUB_WORKSPACE:/home/user/app" \
+            -v "$GITHUB_WORKSPACE:/home/user/myapp" \
             p4a sh -c '
               set -eu
               . venv/bin/activate
-              cd /home/user/app
+              cd /home/user/myapp
 
               p4a apk \
-                --private /home/user/app \
+                --private /home/user/myapp \
                 --package=org.example.myapp \
                 --name="Myapp" \
                 --version=0.1 \
@@ -53,6 +64,7 @@ jobs:
 
           find . -type f -name '*.apk' \
             -not -path './p4a-source/*' \
+            -not -path './bin/*' \
             -exec cp -f {} bin/ \;
 
           test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
