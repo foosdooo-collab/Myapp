@@ -1,0 +1,73 @@
+name: Build Kivy 32-bit Android App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  # Prevents python-for-android from pausing for interactive terminal prompts
+  PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: 0
+  BUILDOZER_ALLOW_ORG_TEST_DOMAIN: '1'
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v7
+
+      - name: Configure System-Level Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf \
+          libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev \
+          cmake patch gawk automake libltdl-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Python Core Build Tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install cython==0.29.34 setuptools buildozer
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+
+      - name: Inject Android 14 and 32-bit System Variables
+        shell: bash
+        run: |
+          # Automatically initialize buildozer.spec if it doesn't exist
+          if [ ! -f buildozer.spec ]; then buildozer init; fi
+          
+          # Force target API to Android 14 (API 34)
+          sed -i.bak 's/^#\? *android.api =.*/android.api = 34/' buildozer.spec
+          
+          # Force architecture compile down strictly to 32-bit ARM (armeabi-v7a)
+          sed -i.bak 's/^#\? *android.archs =.*/android.archs = armeabi-v7a/' buildozer.spec
+          
+          # Automatically accept SDK licenses to prevent build freezes
+          sed -i.bak 's/^#\? *android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+
+      - name: Compile Debug Android Package (APK)
+        run: buildozer android debug
+
+      - name: Archive Built Packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kivy-Android14-32bit-APK
+          path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 7
