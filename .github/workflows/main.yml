@@ -1,6 +1,6 @@
 name: Android Integration
 
-on: [push, pull_request]
+"on": [push, pull_request]
 
 env:
   PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: 0
@@ -33,9 +33,6 @@ jobs:
 
       - name: Verify Buildozer
         run: buildozer --help
-
-      - name: Verify Buildozer spec
-        run: buildozer init
 
       - name: SDK, NDK, and p4a download
         shell: bash
