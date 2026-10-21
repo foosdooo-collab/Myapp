@@ -50,11 +50,13 @@ jobs:
 
       - name: Compile Debug APK via Buildozer Docker Container
         run: |
-          # We pass local caches and the workspace directly into the container
+          # We pass the root bypass flag (-e) alongside the directory mounts
           docker run --rm \
+            -e BUILDOZER_WARN_ON_ROOT=0 \
             -v ${{ github.workspace }}:/home/user/hostdir \
             -v ~/.buildozer:/home/user/.buildozer \
             kivy/buildozer android debug
+            
 
       - name: Archive Built Packages
         if: success()
