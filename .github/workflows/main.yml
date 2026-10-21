@@ -7,7 +7,6 @@ on:
     branches: [ main, master ]
 
 env:
-  # Prevents python-for-android from pausing for interactive terminal prompts
   PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: 0
   BUILDOZER_ALLOW_ORG_TEST_DOMAIN: '1'
 
@@ -31,7 +30,7 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-          cache: 'pip'
+          # Removed the cache option here to prevent the file-matching error
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v6
@@ -48,7 +47,6 @@ jobs:
       - name: Inject Android 14 and 32-bit System Variables
         shell: bash
         run: |
-          # Automatically initialize buildozer.spec if it doesn't exist
           if [ ! -f buildozer.spec ]; then buildozer init; fi
           
           # Force target API to Android 14 (API 34)
@@ -61,10 +59,19 @@ jobs:
           sed -i.bak 's/^#\? *android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
 
       - name: Compile Debug Android Package (APK)
-        run: buildozer android debug
+        run: |
+          buildozer -v android debug
+
+      - name: Debug Output Directories (Runs only on compilation failure)
+        if: failure()
+        run: |
+          echo "=== Checking Workspace Directory ==="
+          ls -la
+          echo "=== Checking .buildozer logs ==="
+          if [ -d .buildozer ]; then find .buildozer -name "*.log" -exec echo "--- Log: {} ---" \; -exec tail -n 50 {} \; ; fi
 
       - name: Archive Built Packages
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Kivy-Android14-32bit-APK
