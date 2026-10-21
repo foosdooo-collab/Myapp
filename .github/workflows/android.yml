@@ -39,6 +39,7 @@ jobs:
           '
 
       - name: Build Android APK
+        shell: bash
         run: |
           set -euxo pipefail
           mkdir -p bin
@@ -48,6 +49,20 @@ jobs:
             p4a sh -c '
               set -eu
               . venv/bin/activate
+
+              SDK_DIR="${ANDROID_HOME:-/home/user/.android}"
+              NDK_DIR="$(find "$SDK_DIR/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1)"
+
+              echo "SDK directory: $SDK_DIR"
+              echo "NDK directory: ${NDK_DIR:-NOT FOUND}"
+
+              test -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ||
+                test -x "$SDK_DIR/tools/bin/sdkmanager" ||
+                test -d "$SDK_DIR/platform-tools"
+
+              test -n "$NDK_DIR"
+              test -f "$NDK_DIR/source.properties"
+
               cd /home/user/myapp
 
               p4a apk \
@@ -58,14 +73,13 @@ jobs:
                 --bootstrap=sdl2 \
                 --requirements=python3,kivy \
                 --arch=arm64-v8a \
-                --sdk-dir="$ANDROID_SDK_HOME" \
-                --ndk-dir="$ANDROID_NDK_HOME"
-            '
+                --sdk-dir="$SDK_DIR" \
+                --ndk-dir="$NDK_DIR"
 
-          find . -type f -name '*.apk' \
-            -not -path './p4a-source/*' \
-            -not -path './bin/*' \
-            -exec cp -f {} bin/ \;
+              find /home/user/myapp -type f -name "*.apk" \
+                -not -path "*/p4a-source/*" \
+                -exec cp -f {} /home/user/myapp/bin/ \;
+            '
 
           test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
 
