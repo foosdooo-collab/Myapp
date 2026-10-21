@@ -50,18 +50,52 @@ jobs:
               set -eu
               . venv/bin/activate
 
-              SDK_DIR="${ANDROID_HOME:-/home/user/.android}"
-              NDK_DIR="$(find "$SDK_DIR/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1)"
+              echo "Searching for Android SDK tools..."
+              SDKMANAGER="$(find /home/user /opt -type f -name sdkmanager 2>/dev/null | head -n 1 || true)"
 
+              if [ -z "$SDKMANAGER" ]; then
+                echo "ERROR: sdkmanager was not found in the container."
+                find /home/user/.android /opt -maxdepth 4 -type d 2>/dev/null | head -n 100
+                exit 1
+              fi
+
+              case "$SDKMANAGER" in
+                */cmdline-tools/*/bin/sdkmanager)
+                  SDK_DIR="${SDKMANAGER%%/cmdline-tools/*}"
+                  ;;
+                */tools/bin/sdkmanager)
+                  SDK_DIR="${SDKMANAGER%%/tools/bin/sdkmanager}"
+                  ;;
+                *)
+                  echo "ERROR: Cannot determine SDK root from $SDKMANAGER"
+                  exit 1
+                  ;;
+              esac
+
+              echo "SDK manager: $SDKMANAGER"
               echo "SDK directory: $SDK_DIR"
-              echo "NDK directory: ${NDK_DIR:-NOT FOUND}"
 
-              test -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ||
-                test -x "$SDK_DIR/tools/bin/sdkmanager" ||
-                test -d "$SDK_DIR/platform-tools"
+              NDK_PROP="$(find "$SDK_DIR" /opt /home/user -type f \
+                -path "*/ndk/*/source.properties" 2>/dev/null | head -n 1 || true)"
 
-              test -n "$NDK_DIR"
-              test -f "$NDK_DIR/source.properties"
+              if [ -z "$NDK_PROP" ]; then
+                echo "No installed NDK found. Installing Android NDK..."
+                yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" \
+                  "ndk;28.2.13676358" \
+                  "platform-tools" \
+                  "platforms;android-35" \
+                  "build-tools;35.0.0"
+                NDK_PROP="$(find "$SDK_DIR" -type f \
+                  -path "*/ndk/*/source.properties" 2>/dev/null | head -n 1 || true)"
+              fi
+
+              test -n "$NDK_PROP" || {
+                echo "ERROR: Android NDK installation failed."
+                exit 1
+              }
+
+              NDK_DIR="$(dirname "$NDK_PROP")"
+              echo "NDK directory: $NDK_DIR"
 
               cd /home/user/myapp
 
@@ -82,7 +116,6 @@ jobs:
             '
 
           test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
