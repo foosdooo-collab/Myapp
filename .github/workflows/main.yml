@@ -10,9 +10,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
+        os: [ubuntu-latest]
+        run: reales 
+       step:
+
+    
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -41,19 +43,13 @@ jobs:
           sed -i.bak 's/^p4a.branch = master/p4a.branch = develop/' buildozer.spec
           buildozer android p4a -- --help
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y automake libltdl-dev
+      
 
       - name: Debug Build (APK)
         run: buildozer android debug
 
       - name: Release Build (APK)
-        if: runner.os == 'Linux'
-        env:
-          BUILDOZER_ALLOW_ORG_TEST_DOMAIN: '1'
+        
         run: buildozer android release
 
       - name: Upload APK artifacts
