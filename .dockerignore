@@ -1,0 +1,10 @@
+.git
+.github
+.buildozer
+bin
+venv
+.venv
+__pycache__
+*.pyc
+*.apk
+*.aab
