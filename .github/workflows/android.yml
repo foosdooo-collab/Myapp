@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Checkout application
+      - name: Checkout app
         uses: actions/checkout@v4
 
       - name: Checkout python-for-android
@@ -24,42 +24,40 @@ jobs:
           path: p4a-source
 
       - name: Build p4a Docker image
-        run: docker build -t p4a ./p4a-source
+        run: docker build --tag p4a ./p4a-source
 
-      - name: Build Android APK
+      - name: Build APK
+        shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p bin
 
           docker run --rm \
-            --volume "$GITHUB_WORKSPACE:/home/user/app" \
-            --workdir /home/user/app \
-            p4a \
-            sh -c '
-              . /home/user/p4a/venv/bin/activate 2>/dev/null ||
-              . /home/user/venv/bin/activate 2>/dev/null ||
-              true
+            -v "$GITHUB_WORKSPACE:/home/user/app" \
+            p4a sh -c '
+              set -eu
+              . venv/bin/activate
+              cd /home/user/app
 
               p4a apk \
                 --private /home/user/app \
-                --package org.example.myapp \
-                --name "Myapp" \
-                --version 0.1 \
-                --bootstrap sdl2 \
-                --requirements python3,kivy \
-                --arch arm64-v8a \
-                --sdk-dir "$ANDROID_SDK_HOME" \
-                --ndk-dir "$ANDROID_NDK_HOME"
+                --package=org.example.myapp \
+                --name="Myapp" \
+                --version=0.1 \
+                --bootstrap=sdl2 \
+                --requirements=python3,kivy \
+                --arch=arm64-v8a \
+                --sdk-dir="$ANDROID_SDK_HOME" \
+                --ndk-dir="$ANDROID_NDK_HOME"
             '
 
-      - name: Collect APK
-        run: |
           find . -type f -name '*.apk' \
             -not -path './p4a-source/*' \
-            -exec cp {} bin/ \;
+            -exec cp -f {} bin/ \;
 
           test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
 
-      - name: Upload Android APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: myapp-android-apk
