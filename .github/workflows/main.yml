@@ -1,67 +1,31 @@
-name: Build Kivy 32-bit Android App via Docker
+name: Android APK (Docker Buildozer)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
   pull_request:
-    branches: [ main, master ]
+  workflow_dispatch:
 
-env:
-  PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: 0
-  BUILDOZER_ALLOW_ORG_TEST_DOMAIN: '1'
+permissions:
+  contents: read
 
 jobs:
-  build:
-    name: Docker Build Android APK
+  build-apk:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v7
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Cache Buildozer Global Data
-        id: cache-buildozer
-        uses: actions/cache@v4
+      - name: Build debug APK in Buildozer Docker image
+        uses: docker://ghcr.io/kivy/buildozer:latest
         with:
-          path: |
-            ~/.buildozer
-            .buildozer
-          # The cache updates whenever buildozer.spec changes
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
+          args: android debug
 
-      - name: Inject Android 14 and 32-bit System Variables
-        shell: bash
-        run: |
-          if [ ! -f buildozer.spec ]; then 
-            # Run buildozer init inside Docker just to generate a default spec if missing
-            docker run --rm -v ${{ github.workspace }}:/home/user/hostdir kivy/buildozer init
-          fi
-          
-          # Force target API to Android 14 (API 34)
-          sed -i.bak 's/^#\? *android.api =.*/android.api = 34/' buildozer.spec
-          
-          # Force architecture compile down strictly to 32-bit ARM (armeabi-v7a)
-          sed -i.bak 's/^#\? *android.archs =.*/android.archs = armeabi-v7a/' buildozer.spec
-          
-          # Automatically accept SDK licenses to prevent build freezes
-          sed -i.bak 's/^#\? *android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
-
-      - name: Compile Debug APK via Buildozer Docker Container
-        run: |
-          # Piping 'y' forces an automatic 'yes' response to the root check prompt
-          echo "y" | docker run --i --rm \
-            -v ${{ github.workspace }}:/home/user/hostdir \
-            -v ~/.buildozer:/home/user/.buildozer \
-            kivy/buildozer android debug
-
-
-      - name: Archive Built Packages
-        if: success()
+      - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Kivy-Docker-Android14-32bit-APK
+          name: android-apk
           path: bin/*.apk
-          if-no-files-found: error
-          retention-days: 7
+          if-no-files-found: warn
+          retention-days: 14
